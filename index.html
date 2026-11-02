@@ -1,1 +1,57 @@
-<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>rox.loc.cc</title></head><body><h1>rox.loc.cc</h1><p>Hello from xubots.</p></body></html>html></p></h1></body></title></head>
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>五子棋 · rox.loc.cc</title>
+<style>
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#1d1f24;color:#eee;font-family:system-ui,"PingFang SC","Microsoft YaHei",sans-serif}
+h1{margin:12px 0 4px;font-weight:600}
+#status{margin:6px 0 12px;font-size:18px;min-height:24px}
+canvas{background:#dcb35c;border-radius:6px;box-shadow:0 8px 30px #0008;max-width:95vw;height:auto;cursor:pointer}
+.bar{margin:12px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+button{background:#3ddc97;border:0;border-radius:8px;padding:8px 16px;font-size:15px;cursor:pointer;color:#111}
+button.alt{background:#444;color:#eee}
+</style>
+</head>
+<body>
+<h1>五子棋</h1>
+<div id="status"></div>
+<canvas id="b" width="600" height="600"></canvas>
+<div class="bar">
+<button id="restart">重新开始</button>
+<button id="undo" class="alt">悔棋</button>
+<button id="mode" class="alt">模式：人机</button>
+</div>
+<script>
+const N=15,S=40,P=20,cv=document.getElementById('b'),ctx=cv.getContext('2d'),st=document.getElementById('status');
+let g,hist,turn,over,ai=true;
+function reset(){g=Array.from({length:N},()=>Array(N).fill(0));hist=[];turn=1;over=false;draw();msg();}
+function msg(t){st.textContent=t||(turn===1?'黑棋走':(ai?'电脑思考中…':'白棋走'));}
+function draw(){ctx.clearRect(0,0,600,600);ctx.strokeStyle='#5a3d10';ctx.lineWidth=1;
+for(let i=0;i<N;i++){ctx.beginPath();ctx.moveTo(P,P+i*S);ctx.lineTo(P+(N-1)*S,P+i*S);ctx.stroke();ctx.beginPath();ctx.moveTo(P+i*S,P);ctx.lineTo(P+i*S,P+(N-1)*S);ctx.stroke();}
+[[3,3],[3,11],[7,7],[11,3],[11,11]].forEach(([x,y])=>{ctx.fillStyle='#5a3d10';ctx.beginPath();ctx.arc(P+x*S,P+y*S,4,0,7);ctx.fill();});
+for(let x=0;x<N;x++)for(let y=0;y<N;y++)if(g[x][y]){const gr=ctx.createRadialGradient(P+x*S-5,P+y*S-5,2,P+x*S,P+y*S,17);
+if(g[x][y]===1){gr.addColorStop(0,'#666');gr.addColorStop(1,'#000');}else{gr.addColorStop(0,'#fff');gr.addColorStop(1,'#ccc');}
+ctx.fillStyle=gr;ctx.beginPath();ctx.arc(P+x*S,P+y*S,17,0,7);ctx.fill();}
+const l=hist[hist.length-1];if(l){ctx.fillStyle='#e33';ctx.beginPath();ctx.arc(P+l[0]*S,P+l[1]*S,4,0,7);ctx.fill();}}
+const D=[[1,0],[0,1],[1,1],[1,-1]];
+function win(x,y,c){for(const[dx,dy]of D){let n=1;for(const s of[1,-1]){let i=x+dx*s,j=y+dy*s;while(i>=0&&j>=0&&i<N&&j<N&&g[i][j]===c){n++;i+=dx*s;j+=dy*s;}}if(n>=5)return true;}return false;}
+function place(x,y){if(over||g[x][y])return false;g[x][y]=turn;hist.push([x,y]);draw();
+if(win(x,y,turn)){over=true;msg(turn===1?'黑棋胜！':(ai?'电脑胜！':'白棋胜！'));return true;}
+if(hist.length===N*N){over=true;msg('平局');return true;}turn=3-turn;msg();return true;}
+function lineScore(x,y,c){let tot=0;for(const[dx,dy]of D){let n=1,open=0;for(const s of[1,-1]){let i=x+dx*s,j=y+dy*s;while(i>=0&&j>=0&&i<N&&j<N&&g[i][j]===c){n++;i+=dx*s;j+=dy*s;}if(i>=0&&j>=0&&i<N&&j<N&&g[i][j]===0)open++;}
+if(n>=5)tot+=1e6;else if(n===4)tot+=open===2?1e5:open?1e4:0;else if(n===3)tot+=open===2?5e3:open?500:0;else if(n===2)tot+=open===2?200:open?20:0;else tot+=open;}return tot;}
+function aiMove(){let best=-1,bx=7,by=7;for(let x=0;x<N;x++)for(let y=0;y<N;y++){if(g[x][y])continue;
+let near=false;for(let i=-2;i<=2&&!near;i++)for(let j=-2;j<=2;j++){const a=x+i,b=y+j;if(a>=0&&b>=0&&a<N&&b<N&&g[a][b]){near=true;break;}}if(!near&&hist.length)continue;
+const s=lineScore(x,y,2)*1.1+lineScore(x,y,1);if(s>best){best=s;bx=x;by=y;}}place(bx,by);}
+cv.addEventListener('click',e=>{if(over||(ai&&turn===2))return;const r=cv.getBoundingClientRect(),k=600/r.width;
+const x=Math.round(((e.clientX-r.left)*k-P)/S),y=Math.round(((e.clientY-r.top)*k-P)/S);if(x<0||y<0||x>=N||y>=N)return;
+if(place(x,y)&&ai&&!over&&turn===2)setTimeout(aiMove,200);});
+document.getElementById('restart').onclick=reset;
+document.getElementById('undo').onclick=()=>{const k=ai?2:1;for(let i=0;i<k&&hist.length;i++){const[x,y]=hist.pop();g[x][y]=0;}turn=1;if(!ai&&hist.length%2)turn=2;over=false;draw();msg();};
+document.getElementById('mode').onclick=e=>{ai=!ai;e.target.textContent='模式：'+(ai?'人机':'双人');reset();};
+reset();
+</script>
+</body>
+</html>
